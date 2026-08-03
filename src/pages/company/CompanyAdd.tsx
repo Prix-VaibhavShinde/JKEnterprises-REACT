@@ -1,0 +1,457 @@
+import React, { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import {
+  Building2,
+  MapPin,
+  Receipt,
+  Save,
+  RotateCcw,
+  Percent,
+  Hash,
+  ShieldCheck,
+  Phone,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { companyService } from "./companyService";
+
+export interface CompanyFormValues {
+  nm: string;
+  empStartCode: string;
+  serviceCharge: string;
+  mobileNumber: string;
+  gstin: string;
+  pf: string;
+  mlwf: string;
+  address: string;
+  state: { id: number; name: string } | string;
+}
+
+// Decimal Validator function matching Angular's decimalValidator(5, 2)
+// Total 5 digits, up to 2 decimal places (e.g. 123.45)
+const validateDecimal = (value: string | number) => {
+  if (value === null || value === undefined || value === "") return true;
+  const strVal = String(value);
+  const decimalRegex = /^\d{1,3}(\.\d{1,2})?$/;
+  return (
+    decimalRegex.test(strVal) ||
+    "Enter a valid decimal (max 5 digits total, up to 2 decimal places)"
+  );
+};
+
+const CompanyAdd: React.FC = () => {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<CompanyFormValues>({
+    mode: "onTouched",
+    defaultValues: {
+      nm: "",
+      empStartCode: "",
+      serviceCharge: "",
+      mobileNumber: "",
+      gstin: "",
+      pf: "",
+      mlwf: "",
+      address: "",
+      state: "MAHARASHTRA",
+    },
+  });
+
+  const onSubmit = async (data: CompanyFormValues) => {
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    try {
+      const payload = {
+        ...data,
+        state:
+          typeof data.state === "string"
+            ? { id: 1, name: data.state.toUpperCase() }
+            : data.state,
+      };
+
+      const res = await companyService.create(payload as any);
+      console.log(res);
+      setSubmitSuccess("Company saved successfully!");
+      reset();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        "Failed to register company. Please try again.";
+      setSubmitError(message);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-5">
+      <Card className="border shadow-sm">
+        <CardHeader className="bg-muted/30 border-b">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 text-primary rounded-lg">
+              <Building2 className="h-6 w-6" />
+            </div>
+            <div>
+              <CardTitle className="text-xl">Register New Company</CardTitle>
+              <CardDescription>
+                Enter organization details, compliance codes, and state
+                information.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="">
+          {/* Success Banner */}
+          {submitSuccess && (
+            <div className="mb-6 p-4 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-3 text-sm">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>{submitSuccess}</span>
+            </div>
+          )}
+
+          {/* Error Banner */}
+          {submitError && (
+            <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20 flex items-center gap-3 text-sm">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Section 1: General Information */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Company Name (Full Width) */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="companyName">Company Name *</Label>
+                  <Input
+                    id="companyName"
+                    autoComplete="off"
+                    placeholder="e.g. Acme Solutions Pvt Ltd"
+                    {...register("nm", {
+                      required: "Company name is required",
+                      maxLength: {
+                        value: 30,
+                        message: "Company name cannot exceed 30 characters",
+                      },
+                    })}
+                  />
+                  {errors.nm && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.nm.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* 2a. Employee Start Code */}
+                <div className="space-y-2">
+                  <Label htmlFor="empStartCode">Employee Start Code *</Label>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="empStartCode"
+                      className="pl-9"
+                      autoComplete="off"
+                      placeholder="e.g. EMP-1000"
+                      {...register("empStartCode", {
+                        required: "Employee start code is required",
+                      })}
+                    />
+                  </div>
+                  {errors.empStartCode && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.empStartCode.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* 2b. Service Charge */}
+                <div className="space-y-2">
+                  <Label htmlFor="serviceCharge">Service Charge (%) *</Label>
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="serviceCharge"
+                      type="number"
+                      step="0.01"
+                      autoComplete="off"
+                      className="pl-9"
+                      placeholder="5.00"
+                      {...register("serviceCharge", {
+                        required: "Service charge is required",
+                        min: {
+                          value: 0,
+                          message: "Service charge cannot be negative",
+                        },
+                        max: {
+                          value: 100,
+                          message: "Service charge cannot exceed 100%",
+                        },
+                        validate: (value) => {
+                          if (
+                            value === null ||
+                            value === undefined ||
+                            value === ""
+                          )
+                            return true;
+                          // Check for maximum 2 decimal places
+                          const decimalRegex = /^\d+(\.\d{1,2})?$/;
+                          return (
+                            decimalRegex.test(String(value)) ||
+                            "Maximum 2 decimal places allowed"
+                          );
+                        },
+                      })}
+                    />
+                  </div>
+                  {errors.serviceCharge && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.serviceCharge.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* 3a. Mobile Number */}
+                <div className="space-y-2">
+                  <Label htmlFor="mobileNumber">Mobile Number *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="mobileNumber"
+                      type="tel"
+                      className="pl-9"
+                      autoComplete="off"
+                      maxLength={10}
+                      placeholder="10-digit mobile number"
+                      {...register("mobileNumber", {
+                        required: "Mobile number is required",
+                        pattern: {
+                          value: /^[0-9]{10}$/,
+                          message: "Mobile number must be exactly 10 digits",
+                        },
+                        onChange: (e) => {
+                          e.target.value = e.target.value
+                            .replace(/[^0-9]/g, "")
+                            .slice(0, 10);
+                        },
+                      })}
+                    />
+                  </div>
+                  {errors.mobileNumber && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.mobileNumber.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* 3b. GSTIN */}
+                <div className="space-y-2">
+                  <Label htmlFor="gstin">GSTIN *</Label>
+                  <div className="relative">
+                    <Receipt className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="gstin"
+                      className="pl-9 uppercase"
+                      autoComplete="off"
+                      maxLength={20}
+                      placeholder="27AAAAA0000A1Z5"
+                      {...register("gstin", {
+                        required: "GSTIN is required",
+                        maxLength: {
+                          value: 20,
+                          message: "GSTIN cannot exceed 20 characters",
+                        },
+                        pattern: {
+                          value:
+                            /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+                          message: "Invalid GSTIN format",
+                        },
+                        onChange: (e) => {
+                          e.target.value = e.target.value.toUpperCase();
+                        },
+                      })}
+                    />
+                  </div>
+                  {errors.gstin && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.gstin.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Statutory & Compliance */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 4a. PF */}
+                <div className="space-y-2">
+                  <Label htmlFor="pf">PF *</Label>
+                  <Input
+                    id="pf"
+                    type="number"
+                    step="0.01"
+                    autoComplete="off"
+                    placeholder="e.g. 10.00"
+                    {...register("pf", {
+                      required: "PF is required",
+                      validate: validateDecimal,
+                    })}
+                  />
+                  {errors.pf && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.pf.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* 4b. MLWF */}
+                <div className="space-y-2">
+                  <Label htmlFor="mlwf">MLWF *</Label>
+                  <Input
+                    id="mlwf"
+                    type="number"
+                    step="0.01"
+                    autoComplete="off"
+                    placeholder="e.g. 12.00"
+                    {...register("mlwf", {
+                      required: "MLWF is required",
+                      validate: validateDecimal,
+                    })}
+                  />
+                  {errors.mlwf && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.mlwf.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Location Details */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 5a. Address */}
+                <div className="space-y-2">
+                  <Label htmlFor="address">Full Address *</Label>
+                  <Input
+                    id="address"
+                    autoComplete="off"
+                    placeholder="Plot No, Street, Industrial Area, City..."
+                    {...register("address", {
+                      required: "Address is required",
+                      minLength: {
+                        value: 2,
+                        message: "Address must be at least 2 characters",
+                      },
+                      maxLength: {
+                        value: 200,
+                        message: "Address cannot exceed 200 characters",
+                      },
+                    })}
+                  />
+                  {errors.address && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.address.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* 5b. State */}
+                <div className="space-y-2">
+                  <Label htmlFor="state">State *</Label>
+                  <Controller
+                    name="state"
+                    control={control}
+                    rules={{ required: "State selection is required" }}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={
+                          typeof field.value === "object"
+                            ? field.value.name
+                            : field.value
+                        }
+                      >
+                        <SelectTrigger id="state">
+                          <SelectValue placeholder="Select State" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MAHARASHTRA">
+                            MAHARASHTRA
+                          </SelectItem>
+                          <SelectItem value="GUJARAT">GUJARAT</SelectItem>
+                          <SelectItem value="KARNATAKA">KARNATAKA</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.state && (
+                    <p className="text-xs text-destructive font-medium">
+                      {errors.state.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  reset();
+                  setSubmitError(null);
+                  setSubmitSuccess(null);
+                }}
+                disabled={isSubmitting}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" /> Reset
+              </Button>
+              <Button type="submit" disabled={!isValid || isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" /> Save Company
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default CompanyAdd;
