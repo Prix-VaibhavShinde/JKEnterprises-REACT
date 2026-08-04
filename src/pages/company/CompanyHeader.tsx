@@ -3,7 +3,19 @@ import { PlusCircle, Building2 } from "lucide-react";
 import CompanyAdd from "./CompanyAdd";
 import CompanyDetails from "./CompanyDetails";
 
+
 type TabType = "add" | "details";
+export interface CompanyFormValues {
+  nm: string;
+  employeeStartCode: string;
+  serviceCharge: string;
+  mobileNumber: string;
+  gstin: string;
+  pf: string;
+  mlwf: string;
+  address: string;
+  state: { id: number; name: string } | string;
+}
 
 const CompanyHeader: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("add");

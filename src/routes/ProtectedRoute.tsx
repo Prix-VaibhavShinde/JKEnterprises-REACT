@@ -11,7 +11,8 @@ const ProtectedRoute: React.FC = () => {
     <SidebarProvider>
       <div className="flex min-h-screen w-full relative">
         <AppSidebar />
-        <main className="flex-1 p-6">
+        {/* Added min-w-0 to prevent horizontal overflow in flex item */}
+        <main className="flex-1 min-w-0 p-4 md:p-6">
           <div className="fixed top-3 right-3 z-50 md:hidden">
             <SidebarTrigger className="bg-background/80 backdrop-blur border shadow-sm rounded-md h-9 w-9 p-0" />
           </div>

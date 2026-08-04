@@ -2,10 +2,10 @@ import React, {
   createContext,
   useContext,
   useState,
+  useEffect,
   type ReactNode,
 } from "react";
 
-// User metadata returned by your backend API
 export interface UserData {
   address?: string;
   email?: string;
@@ -27,23 +27,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isExpired = (expirationStr?: string): boolean => {
+  if (!expirationStr) return false;
+
+  const expTime = new Date(expirationStr).getTime();
+  if (isNaN(expTime)) return false;
+
+  return Date.now() >= expTime;
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem("token"),
   );
-  const [user, setUser] = useState<UserData | null>(() => {
-    const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
 
-  const login = (newToken: string, userData: UserData) => {
-    localStorage.setItem("token", newToken);
-    localStorage.setItem("user", JSON.stringify(userData));
-    setToken(newToken);
-    setUser(userData);
-  };
+  const [user, setUser] = useState<UserData | null>(() => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (!savedUser) return null;
+
+      const parsedUser: UserData = JSON.parse(savedUser);
+
+      if (parsedUser.expiration && isExpired(parsedUser.expiration)) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        return null;
+      }
+
+      return parsedUser;
+    } catch {
+      return null;
+    }
+  });
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -52,6 +69,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setUser(null);
   };
 
+  const login = (newToken: string, userData: UserData) => {
+    if (userData.expiration && isExpired(userData.expiration)) {
+      logout();
+      return;
+    }
+
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("user", JSON.stringify(userData));
+    setToken(newToken);
+    setUser(userData);
+  };
+
+  useEffect(() => {
+    if (!user?.expiration) return;
+
+    const expTime = new Date(user.expiration).getTime();
+    if (isNaN(expTime)) return;
+
+    const timeUntilExpiration = expTime - Date.now();
+
+    if (timeUntilExpiration <= 0) {
+      logout();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      logout();
+    }, timeUntilExpiration);
+
+    return () => clearTimeout(timer);
+  }, [user?.expiration]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -59,7 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         user,
         login,
         logout,
-        isAuthenticated: Boolean(token),
+        isAuthenticated: Boolean(token && user),
       }}
     >
       {children}

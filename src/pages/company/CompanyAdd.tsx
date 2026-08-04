@@ -1,14 +1,12 @@
 import React, { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import {
   Building2,
-  MapPin,
   Receipt,
   Save,
   RotateCcw,
   Percent,
   Hash,
-  ShieldCheck,
   Phone,
   Loader2,
   CheckCircle2,
@@ -25,29 +23,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { companyService } from "./companyService";
+import type { ICompany } from "@/interfaces/ICompany";
+import { companyService } from "@/services/Company";
 
-export interface CompanyFormValues {
-  nm: string;
-  empStartCode: string;
-  serviceCharge: string;
-  mobileNumber: string;
-  gstin: string;
-  pf: string;
-  mlwf: string;
-  address: string;
-  state: { id: number; name: string } | string;
-}
-
-// Decimal Validator function matching Angular's decimalValidator(5, 2)
-// Total 5 digits, up to 2 decimal places (e.g. 123.45)
 const validateDecimal = (value: string | number) => {
   if (value === null || value === undefined || value === "") return true;
   const strVal = String(value);
@@ -68,11 +46,11 @@ const CompanyAdd: React.FC = () => {
     control,
     reset,
     formState: { errors, isValid, isSubmitting },
-  } = useForm<CompanyFormValues>({
+  } = useForm<ICompany>({
     mode: "onTouched",
     defaultValues: {
       nm: "",
-      empStartCode: "",
+      employeeStartCode: "",
       serviceCharge: "",
       mobileNumber: "",
       gstin: "",
@@ -83,7 +61,7 @@ const CompanyAdd: React.FC = () => {
     },
   });
 
-  const onSubmit = async (data: CompanyFormValues) => {
+  const onSubmit = async (data: ICompany) => {
     setSubmitError(null);
     setSubmitSuccess(null);
 
@@ -95,11 +73,11 @@ const CompanyAdd: React.FC = () => {
             ? { id: 1, name: data.state.toUpperCase() }
             : data.state,
       };
-
+      console.log(payload);
       const res = await companyService.create(payload as any);
       console.log(res);
       setSubmitSuccess("Company saved successfully!");
-      reset();
+      // reset();
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
@@ -144,21 +122,23 @@ const CompanyAdd: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Section 1: General Information */}
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 1. Company Name (Full Width) */}
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="companyName">Company Name *</Label>
                   <Input
                     id="companyName"
                     autoComplete="off"
-                    placeholder="e.g. Acme Solutions Pvt Ltd"
+                    placeholder="e.g. Abcd Solutions Pvt Ltd"
                     {...register("nm", {
                       required: "Company name is required",
                       maxLength: {
                         value: 30,
                         message: "Company name cannot exceed 30 characters",
+                      },
+                      minLength: {
+                        value: 2,
+                        message: "Company name must be at least 3 characters.",
                       },
                     })}
                   />
@@ -179,14 +159,14 @@ const CompanyAdd: React.FC = () => {
                       className="pl-9"
                       autoComplete="off"
                       placeholder="e.g. EMP-1000"
-                      {...register("empStartCode", {
+                      {...register("employeeStartCode", {
                         required: "Employee start code is required",
                       })}
                     />
                   </div>
-                  {errors.empStartCode && (
+                  {errors.employeeStartCode && (
                     <p className="text-xs text-destructive font-medium">
-                      {errors.empStartCode.message}
+                      {errors.employeeStartCode.message}
                     </p>
                   )}
                 </div>
@@ -205,27 +185,16 @@ const CompanyAdd: React.FC = () => {
                       placeholder="5.00"
                       {...register("serviceCharge", {
                         required: "Service charge is required",
-                        min: {
-                          value: 0,
-                          message: "Service charge cannot be negative",
-                        },
-                        max: {
-                          value: 100,
-                          message: "Service charge cannot exceed 100%",
-                        },
                         validate: (value) => {
-                          if (
-                            value === null ||
-                            value === undefined ||
-                            value === ""
-                          )
-                            return true;
-                          // Check for maximum 2 decimal places
-                          const decimalRegex = /^\d+(\.\d{1,2})?$/;
-                          return (
-                            decimalRegex.test(String(value)) ||
-                            "Maximum 2 decimal places allowed"
-                          );
+                          if (Number(value) >= 0 && Number(value) <= 100) {
+                            const decimalRegex = /^\d+(\.\d{1,2})?$/;
+                            return (
+                              decimalRegex.test(String(value)) ||
+                              "Maximum 2 decimal places allowed"
+                            );
+                          } else {
+                            return "Percentage must be between 0 and 100.";
+                          }
                         },
                       })}
                     />
@@ -254,11 +223,6 @@ const CompanyAdd: React.FC = () => {
                         pattern: {
                           value: /^[0-9]{10}$/,
                           message: "Mobile number must be exactly 10 digits",
-                        },
-                        onChange: (e) => {
-                          e.target.value = e.target.value
-                            .replace(/[^0-9]/g, "")
-                            .slice(0, 10);
                         },
                       })}
                     />
@@ -386,31 +350,13 @@ const CompanyAdd: React.FC = () => {
                 {/* 5b. State */}
                 <div className="space-y-2">
                   <Label htmlFor="state">State *</Label>
-                  <Controller
-                    name="state"
-                    control={control}
-                    rules={{ required: "State selection is required" }}
-                    render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={
-                          typeof field.value === "object"
-                            ? field.value.name
-                            : field.value
-                        }
-                      >
-                        <SelectTrigger id="state">
-                          <SelectValue placeholder="Select State" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MAHARASHTRA">
-                            MAHARASHTRA
-                          </SelectItem>
-                          <SelectItem value="GUJARAT">GUJARAT</SelectItem>
-                          <SelectItem value="KARNATAKA">KARNATAKA</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
+                  <Input
+                    id="state"
+                    type="text"
+                    autoComplete="off"
+                    value="MAHARASHTRA"
+                    placeholder="MAHARASHTRA"
+                    readOnly
                   />
                   {errors.state && (
                     <p className="text-xs text-destructive font-medium">
