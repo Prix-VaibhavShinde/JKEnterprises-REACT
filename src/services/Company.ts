@@ -23,13 +23,20 @@ export const companyService = {
     id: string,
     data: Partial<CreateCompanyDTO>,
   ): Promise<ICompany> => {
-    const response = await apiClient.put<ICompany>(`/companies/${id}`, data);
+    const response = await apiClient.post<ICompany>(`/Company/${id}`, data);
     return response.data;
   },
 
-  delete: async (id: string): Promise<{ success: boolean }> => {
-    const response = await apiClient.delete<{ success: boolean }>(
-      `/companies/${id}`,
+  delete: async (id: number): Promise<{ success: boolean }> => {
+    const response = await apiClient.get<{ success: boolean }>(
+      `/Company/activeDeactive/${id}`,
+    );
+    return response.data;
+  },
+
+  activeDeactive: async (id: number): Promise<{ success: boolean }> => {
+    const response = await apiClient.get<{ success: boolean }>(
+      `/Company/activeDeactive/${id}`,
     );
     return response.data;
   },

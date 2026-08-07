@@ -3,6 +3,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import AppRoutes from "@/routes/AppRoutes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider } from "@/context/AppContext";
+import { Toaster } from "@/components/ui/sonner";
 
 const App: React.FC = () => {
   return (
@@ -10,6 +11,7 @@ const App: React.FC = () => {
       <AuthProvider>
         <AppProvider>
           <AppRoutes />
+          <Toaster position="top-right" />
         </AppProvider>
       </AuthProvider>
     </TooltipProvider>

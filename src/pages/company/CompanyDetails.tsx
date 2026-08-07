@@ -1,35 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/AppContext";
-import {
-  RefreshCw,
-  Building2,
-  Search,
-  MoreHorizontal,
-  Copy,
-  Eye,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
-import { useSidebar } from "@/components/ui/sidebar";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RefreshCw, Building2, Search, XCircle, X, FileEdit, } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, } from "@/components/ui/pagination";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { formatDate } from "@/shared/formatDate";
 
 export interface StateInfo {
@@ -48,17 +25,24 @@ export interface Company {
   mlwf: number;
   address: string;
   gstin: string;
-  state: StateInfo;
+  state: StateInfo | string;
   serviceCharge: number;
   employeeStartCode: number;
   isActive: boolean;
   modifiedDate: string;
 }
 
-const CompanyDetails = () => {
-  const { isFetching, companies, fetchCompanies, error } = useApp();
-  const { open, isMobile } = useSidebar();
+interface Props {
+  onEdit: () => void;
+}
+
+const CompanyDetails: React.FC<Props> = ({ onEdit }) => {
+  const { isFetching, companies = [], fetchCompanies, error, selectCompany, updateActiveStatus, } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   useEffect(() => {
     if (companies.length === 0 && !isFetching) {
@@ -66,22 +50,72 @@ const CompanyDetails = () => {
     }
   }, [companies.length, isFetching, fetchCompanies]);
 
-  // Filter companies based on search
+  // Reset to page 1 whenever the search filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const filteredCompanies = useMemo(() => {
     if (!searchQuery.trim()) return companies;
     const query = searchQuery.toLowerCase();
     return companies.filter(
-      (c) =>
+      (c: any) =>
         c.nm?.toLowerCase().includes(query) ||
         c.unm?.toLowerCase().includes(query) ||
         c.gstin?.toLowerCase().includes(query) ||
-        c.id.toString().includes(query),
+        c.id?.toString().includes(query)
     );
   }, [companies, searchQuery]);
 
+  // Pagination Calculations
+  const totalItems = filteredCompanies.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  const paginatedCompanies = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCompanies.slice(start, start + pageSize);
+  }, [filteredCompanies, currentPage, pageSize]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("ellipsis-1");
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (currentPage < totalPages - 2) pages.push("ellipsis-2");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const startRecord = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endRecord = Math.min(currentPage * pageSize, totalItems);
+
+  const handleUpdate = (company: any) => {
+    selectCompany(company);
+    onEdit();
+  };
+
   if (isFetching && companies.length === 0) {
     return (
-      <div className="flex h-[70vh] flex-col items-center justify-center gap-3 text-slate-500">
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-muted-foreground">
         <RefreshCw className="h-6 w-6 animate-spin text-primary" />
         <span className="text-sm font-medium">
           Loading company directory...
@@ -92,15 +126,15 @@ const CompanyDetails = () => {
 
   if (error) {
     return (
-      <div className="flex h-[70vh] flex-col items-center justify-center p-6 text-center">
-        <div className="rounded-full bg-red-100 p-3 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+      <div className="flex h-[60vh] flex-col items-center justify-center p-6 text-center">
+        <div className="rounded-full bg-destructive/10 p-3 text-destructive">
           <XCircle className="h-6 w-6" />
         </div>
-        <p className="mt-3 font-semibold text-slate-900 dark:text-slate-100">
+        <p className="mt-3 font-semibold text-foreground">
           Failed to load companies
         </p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-          {error.message}
+        <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+          {error.message || "An unexpected error occurred."}
         </p>
         <Button
           onClick={fetchCompanies}
@@ -115,35 +149,43 @@ const CompanyDetails = () => {
   }
 
   return (
-    <div className="w-full max-w-full space-y-4 p-1">
+    <div className="w-full space-y-4 p-2 sm:p-4">
       {/* Header Section */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center space-x-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-xs">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            <h1 className="text-lg font-semibold tracking-tight text-foreground">
               Company Directory
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {companies.length} total registered{" "}
+            <p className="text-xs text-muted-foreground">
+              {companies.length} registered{" "}
               {companies.length === 1 ? "organization" : "organizations"}
             </p>
           </div>
         </div>
 
+        {/* Action & Filter Controls */}
         <div className="flex items-center gap-2">
-          {/* Quick Search Input */}
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          <div className="relative flex-1 sm:w-72">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search by name, GSTIN..."
+              placeholder="Search by ID, name, GSTIN..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 pl-9 text-xs focus-visible:ring-1"
+              className="h-9 pl-9 pr-8 text-xs bg-background"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           <Button
@@ -161,174 +203,125 @@ const CompanyDetails = () => {
         </div>
       </div>
 
-      {/* Main Table Card Wrapper */}
-      <div className="relative rounded-xl border border-slate-200/80 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-950">
-        <div className="max-h-[680px] overflow-auto rounded-xl">
-          <Table className="w-full min-w-[1100px] text-xs">
-            <TableHeader className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-xs dark:bg-slate-900/90">
-              <TableRow className="border-b border-slate-200/80 dark:border-slate-800 hover:bg-transparent">
-                <TableHead className="w-[70px] font-semibold text-slate-700 dark:text-slate-300">
-                  ID
-                </TableHead>
-                <TableHead className="w-[100px] font-semibold text-slate-700 dark:text-slate-300">
-                  Status
-                </TableHead>
-                <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
-                  Company Name
-                </TableHead>
-                <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
-                  Username
-                </TableHead>
-                <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
-                  GSTIN
-                </TableHead>
-                <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
-                  State
-                </TableHead>
-                <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">
-                  PF (%)
-                </TableHead>
-                <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">
-                  MLWF
-                </TableHead>
-                <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">
-                  Svc Charge
-                </TableHead>
-                <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
-                  Address
-                </TableHead>
-                <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
-                  Modified
-                </TableHead>
-                <TableHead className="w-[50px] text-center font-semibold text-slate-700 dark:text-slate-300">
-                  Actions
-                </TableHead>
+      {/* Main Table Wrapper */}
+      <div className="rounded-md border border-border bg-card shadow-xs overflow-hidden flex flex-col">
+        {/* Fixed Height Container for Sticky Scrolling */}
+        <div className="relative max-h-[500px] md:max-h-[550px] lg:max-h-[800px] overflow-auto">
+          <Table className="w-full min-w-[1000px] text-xs relative border-collapse">
+            <TableHeader className="sticky top-0 z-20 bg-background shadow-xs">
+              <TableRow className="border-b border-border hover:bg-transparent bg-background">
+                <TableHead className="w-24">Actions</TableHead>
+                <TableHead className="w-28 text-center">Status</TableHead>
+                <TableHead className="min-w-[220px]">Company</TableHead>
+                <TableHead className="w-52">GSTIN</TableHead>
+                <TableHead className="w-40">State</TableHead>
+                <TableHead className="w-24 text-center">PF</TableHead>
+                <TableHead className="w-24 text-center">MLWF</TableHead>
+                <TableHead className="w-32 text-center">Service Charge</TableHead>
+                <TableHead className="min-w-[280px]">Address</TableHead>
+                <TableHead className="w-36">Modified</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {filteredCompanies.length === 0 ? (
+              {paginatedCompanies.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={12}
-                    className="h-32 text-center text-slate-500"
+                    colSpan={9}
+                    className="h-40 text-center text-muted-foreground"
                   >
-                    No matching companies found.
+                    No companies found.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCompanies.map((company) => (
+                paginatedCompanies.map((company: any) => (
                   <TableRow
                     key={company.id}
-                    className="border-b border-slate-100 transition-colors hover:bg-slate-50/80 dark:border-slate-900 dark:hover:bg-slate-900/50"
+                    className="hover:bg-muted/40 transition-colors"
                   >
-                    {/* ID */}
-                    <TableCell className="font-mono text-[11px] font-medium text-slate-500">
-                      #{company.id}
+                    {/* Actions */}
+                    <TableCell className="w-24">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleUpdate(company)}
+                        >
+                          <FileEdit className="h-4 w-4" />
+                        </Button>
+
+                        {/* <Button
+                          size="icon"
+                          variant="ghost"
+                          className="hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleDelete(company.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button> */}
+                      </div>
                     </TableCell>
 
-                    {/* Status Badge */}
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    {/* Status */}
+                    <TableCell className="w-28 text-center">
+                      <Badge
+                        onClick={() => updateActiveStatus(company.id)}
+                        variant={company.isActive ? "default" : "secondary"}
+                        className={
                           company.isActive
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
-                            : "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
-                        }`}
+                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/50 cursor-pointer"
+                            : "bg-rose-500/15 text-rose-500 border-rose-500/50 cursor-pointer"
+                        }
                       >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            company.isActive
-                              ? "bg-emerald-500 animate-pulse"
-                              : "bg-slate-400"
-                          }`}
-                        />
                         {company.isActive ? "Active" : "Inactive"}
-                      </span>
+                      </Badge>
                     </TableCell>
 
-                    {/* Company Name */}
-                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                      {company.nm || "—"}
-                    </TableCell>
-
-                    {/* Username */}
-                    <TableCell className="text-slate-600 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
-                      @{company.unm}
+                    {/* Company */}
+                    <TableCell className="min-w-[220px]">
+                      <div className="font-medium truncate">{company.nm}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        @{company.unm}
+                      </div>
                     </TableCell>
 
                     {/* GSTIN */}
-                    <TableCell className="font-mono text-[11px] text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      {company.gstin || (
-                        <span className="text-slate-400">N/A</span>
-                      )}
+                    <TableCell className="w-52">
+                      {company.gstin || "—"}
                     </TableCell>
 
                     {/* State */}
-                    <TableCell className="text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      {company.state?.name || "—"}
+                    <TableCell className="w-40">
+                      {company.state || "—"}
                     </TableCell>
 
                     {/* PF */}
-                    <TableCell className="text-right font-mono text-slate-700 dark:text-slate-300">
-                      {company.pf ?? 0}%
+                    <TableCell className="w-24 text-center">
+                      {company.pf}%
                     </TableCell>
 
                     {/* MLWF */}
-                    <TableCell className="text-right font-mono text-slate-700 dark:text-slate-300">
-                      ₹{company.mlwf ?? 0}
+                    <TableCell className="w-24 text-center">
+                      {company.mlwf}
                     </TableCell>
 
                     {/* Service Charge */}
-                    <TableCell className="text-right font-mono text-slate-700 dark:text-slate-300">
-                      ₹{company.serviceCharge ?? 0}
+                    <TableCell className="w-32 text-center">
+                      {company.serviceCharge}%
                     </TableCell>
 
                     {/* Address */}
-                    <TableCell className="max-w-[220px] truncate text-slate-500 title={company.address}">
-                      {company.address || (
-                        <span className="italic text-slate-400">
-                          No address provided
-                        </span>
-                      )}
+                    <TableCell className="min-w-[280px] max-w-[350px]">
+                      <p
+                        className="line-clamp-2 text-sm text-muted-foreground"
+                        title={company.address}
+                      >
+                        {company.address || "Not provided"}
+                      </p>
                     </TableCell>
 
-                    {/* Modified Date */}
-                    <TableCell className="text-slate-500 whitespace-nowrap text-[11px]">
+                    {/* Modified */}
+                    <TableCell className="w-36 text-xs whitespace-nowrap">
                       {formatDate(company.modifiedDate)}
-                    </TableCell>
-
-                    {/* Action Dropdown Menu */}
-                    <TableCell className="text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-40 text-xs"
-                        >
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigator.clipboard.writeText(company.gstin)
-                            }
-                          >
-                            <Copy className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                            Copy GSTIN
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                            View Details
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -337,22 +330,98 @@ const CompanyDetails = () => {
           </Table>
         </div>
 
-        {/* Footer Summary Bar */}
-        <div className="flex items-center justify-between border-t border-slate-200/80 bg-slate-50/50 px-4 py-2.5 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900/30">
-          <span>
-            Showing{" "}
-            <strong className="font-medium text-slate-700 dark:text-slate-300">
-              {filteredCompanies.length}
-            </strong>{" "}
-            of{" "}
-            <strong className="font-medium text-slate-700 dark:text-slate-300">
-              {companies.length}
-            </strong>{" "}
-            entries
-          </span>
-          <span className="text-[11px] text-slate-400">
-            Scroll horizontally to view all columns
-          </span>
+        {/* Footer & Shadcn Pagination Bar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+          {/* Record Counters & Rows-Per-Page Selector */}
+          <div className="flex items-center gap-4">
+            <span>
+              Showing{" "}
+              <strong className="font-semibold text-foreground">
+                {startRecord}-{endRecord}
+              </strong>{" "}
+              of{" "}
+              <strong className="font-semibold text-foreground">
+                {totalItems}
+              </strong>{" "}
+              records
+            </span>
+
+            <div className="flex items-center gap-2 border-l border-border pl-4">
+              <span>Rows per page</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(val) => {
+                  setPageSize(Number(val));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-7 w-[70px] text-xs bg-background">
+                  <SelectValue placeholder={pageSize} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Shadcn UI Pagination Controls */}
+          <Pagination className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePageChange(currentPage - 1);
+                  }}
+                  className={
+                    currentPage === 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+
+              {getPageNumbers().map((page, index) => (
+                <PaginationItem key={index}>
+                  {typeof page === "string" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === page}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(page as number);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePageChange(currentPage + 1);
+                  }}
+                  className={
+                    currentPage === totalPages || totalItems === 0
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       </div>
     </div>

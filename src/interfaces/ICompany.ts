@@ -7,5 +7,6 @@ export interface ICompany {
   pf: string;
   mlwf: string;
   address: string;
-  state: { id: number; name: string } | string;
+  state: string;
+  isActive: boolean;
 }

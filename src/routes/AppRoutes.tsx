@@ -14,6 +14,7 @@ import Employee from "@/pages/Employee";
 // Route Guards
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
+import CustomerHeader from "@/pages/customer/CustomerHeader";
 
 // Temporary fallback component for unbuilt pages
 const PagePlaceholder: React.FC<{ title: string }> = ({ title }) => (
@@ -42,7 +43,7 @@ const AppRoutes: React.FC = () => {
         {/* Section 2: Master Management */}
         <Route path="/master">
           <Route path="company" element={<CompanyHeader />} />
-          <Route path="customer" element={<Customer />} />
+          <Route path="customer" element={<CustomerHeader />} />
           <Route path="employee" element={<Employee />} />
           <Route
             path="raw_material"
